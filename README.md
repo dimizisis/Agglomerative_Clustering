@@ -56,6 +56,8 @@ According to the two preconditions required for assuring a certain degree of fun
 
 ## Instructions
 
+### Python
+
 This script finds the first CSV available in the same directory & takes it as input. Try run it with the example CSV provided.
 
 Any version of Python3 is mandatory.
@@ -67,3 +69,9 @@ pip install -r requirements.txt
 ```
 python AgglomerativeClustering.py <minimum_distance_threshold_value>
 ```
+
+### Java
+
+JDK version 11+ is mandatory.
+
+It is a Maven project, just import the java/Clustering directory in an IDE (i.e. Eclipse, Intellij IDEA). In the current version, CSV file path must be set by initializing the PATH variable, inside the Main class.
