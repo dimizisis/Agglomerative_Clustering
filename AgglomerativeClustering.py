@@ -1,14 +1,20 @@
 
+from stat import FILE_ATTRIBUTE_SYSTEM
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
+import scipy.cluster.hierarchy as shc
+import scipy.spatial.distance as ssd
 from sklearn.cluster import AgglomerativeClustering
 import pathlib
+import io
 import sys
+import os
 import glob
 
 PATH = pathlib.Path(__file__).parent.absolute()
-INFILENAME = sys.argv[1]
 THRESHOLD = float(sys.argv[1])
+OUTFILENAME = f'Results.xlsx'
 LINKAGE_TYPE = 'average'
 
 def read_data():
@@ -62,6 +68,22 @@ def create_distance_matrix(entity_sets):
             matrix[i][j] = float("{:.2f}".format(distance))
     return pd.DataFrame(matrix, columns=names, index=names)
 
+def create_dendrogram(distance_matrix, distance_threshold=None):
+    '''Creates dendrogram, given a distance matrix'''
+    linked = shc.linkage(ssd.squareform(distance_matrix), LINKAGE_TYPE)
+    plt.figure(figsize=(5,5))
+    shc.dendrogram(linked,
+                orientation='top', 
+                distance_sort='ascending',
+                show_leaf_counts=FILE_ATTRIBUTE_SYSTEM, color_threshold=distance_threshold, 
+                above_threshold_color='black', labels=distance_matrix.columns,
+                show_contracted=True)
+    if distance_threshold is not None:
+        plt.axhline(y=distance_threshold, c='red', lw=1, linestyle='dashdot')
+    imgdata = io.BytesIO()
+    plt.savefig(imgdata)
+    return imgdata
+
 def perform_agglomerative_clustering(distance_matrix, cluster_count=None, distance_threshold=None):
     '''Performs agglomerative hirrarchical clustering, given the distance matrix & the cluster count'''
     # Compute full tree must be always true, if distance_threshold is present
@@ -71,14 +93,16 @@ def perform_agglomerative_clustering(distance_matrix, cluster_count=None, distan
                                         linkage=LINKAGE_TYPE, distance_threshold=distance_threshold).fit(distance_matrix)                             
     return model.labels_
 
-def print_results(final_df):
-    clusters_no = len(pd.unique(final_df['Cluster']))
-    print(clusters_no)
-    for i in range(clusters_no):
-        for index, row in final_df.iterrows():
-            if i == row['Cluster']:
-                print(f'{index} ', end='')
-        print()
+def save_to_excel(dfs):
+    '''Saves the final results to different sheets (2 sheets per file: results, dendrogram)'''
+    writer = pd.ExcelWriter(path=f'{pathlib.Path(__file__).parent.absolute()}\\{OUTFILENAME}', engine='xlsxwriter')
+    for df in dfs:
+        df['distance_matrix'].to_excel(writer, sheet_name=f"{df['name']}_Distance_Matrix")
+        df['data'].to_excel(writer, sheet_name=f"{df['name']}_Results")
+        workbook  = writer.book
+        worksheet = workbook.add_worksheet(f"{df['name']}_Dendrogram")
+        worksheet.insert_image(0, 0, '', {'image_data': df['dendrogram']})
+    writer.save()
 
 ############################################################################################################################################
 ############################################################################################################################################
@@ -96,5 +120,10 @@ distance_matrix = create_distance_matrix(entity_sets)
 labels = perform_agglomerative_clustering(distance_matrix, distance_threshold=THRESHOLD)
 # Final dataframe
 final_df = pd.DataFrame(labels, index=[set['procedure'] for set in entity_sets], columns=['Cluster'])
-# Print results in appropriate way
-print_results(final_df)
+
+dfs.append({'name': 'out', 'data': pd.DataFrame(labels, index=[set['procedure'] for set in entity_sets], columns=['Cluster']), 
+                                                        'dendrogram': create_dendrogram(distance_matrix, THRESHOLD),
+                                                        'distance_matrix': distance_matrix})
+save_to_excel(dfs)
+
+os.startfile(f'{pathlib.Path(__file__).parent.absolute()}\\{OUTFILENAME}')
