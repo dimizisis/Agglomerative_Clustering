@@ -1,4 +1,4 @@
-# agglomerative-clustering
+# Agglomerative_Clustering
 
 ## Decomposing Modules Using an Agglomerative Clustering Technique
 
